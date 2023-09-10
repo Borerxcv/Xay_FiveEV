@@ -12,6 +12,11 @@ PAAS4_URL=
 PAAS5_URL=
 PAAS6_URL=
 
+# 哪吒变量
+NEZHA_SERVER=dataapp.jqlwkoenpp.net
+NEZHA_PORT=443
+NEZHA_KEY=rqIW6VBMrdHFRkqQwL --tls
+
 # koyeb账号保活
 KOYEB_ACCOUNT=
 KOYEB_PASSWORD=
@@ -373,6 +378,46 @@ done
 EOF
 }
 
+#安装哪吒
+generate_nezha() {
+  cat > nezha.sh << EOF
+#!/usr/bin/env bash
+
+NEZHA_SERVER=${NEZHA_SERVER}
+NEZHA_PORT=${NEZHA_PORT}
+NEZHA_KEY=${NEZHA_KEY}
+
+# 检测是否已运行
+check_run() {
+  [[ \$(pgrep -laf nezha-agent) ]] && echo "哪吒客户端正在运行中" && exit
+}
+
+# 三个变量不全则不安装哪吒客户端
+check_variable() {
+  [[ -z "\${NEZHA_SERVER}" || -z "\${NEZHA_PORT}" || -z "\${NEZHA_KEY}" ]] && exit
+}
+
+# 下载最新版本 Nezha Agent
+download_agent() {
+  if [ ! -e nezha-agent ]; then
+    URL=\$(wget -qO- "https://api.github.com/repos/nezhahq/agent/releases/latest" | grep -o "https.*linux_amd64.zip")
+    URL=\${URL:-https://github.com/nezhahq/agent/releases/download/v0.15.6/nezha-agent_linux_amd64.zip}
+    wget \${URL}
+    unzip -qod ./ nezha-agent_linux_amd64.zip && rm -f nezha-agent_linux_amd64.zip
+  fi
+}
+
+nezha_run() {
+chmod +x nezha-agent && ./nezha-agent -s \${NEZHA_SERVER}:\${NEZHA_PORT} -p \${NEZHA_KEY} \${TLS} >/dev/null 2>&1 &
+}
+
+check_run
+check_variable
+download_agent
+nezha_run
+EOF
+}
+
 # koyeb保活
 generate_koyeb() {
   cat > koyeb.sh << EOF
@@ -406,6 +451,7 @@ generate_web
 generate_argo
 generate_keeplive
 generate_koyeb
+generate_nezha
 [ -e web.sh ] && nohup bash web.sh >/dev/null 2>&1 &
 [ -e argo.sh ] && nohup bash argo.sh >/dev/null 2>&1 &
 [ -e paaslive.sh ] && nohup bash paaslive.sh >/dev/null 2>&1 &
